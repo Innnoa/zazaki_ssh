@@ -5,6 +5,11 @@
 #include <cstdint>
 #include <fcntl.h>
 
+#include <poll.h>
+#include <signal.h>
+#include <termios.h>
+#include <unistd.h>
+
 #include <libssh/callbacks.h>
 #include <libssh/libssh.h>
 #include <libssh/sftp.h>
@@ -194,6 +199,15 @@ void LibsshAdapter::start_interactive_shell() {
         "ssh_channel_open_session failed: " + std::string(ssh_get_error(session_)));
   }
 
+  const int pty_rc = ssh_channel_request_pty(channel);
+  if (pty_rc != SSH_OK) {
+    ssh_channel_close(channel);
+    ssh_channel_free(channel);
+    throw LibsshError(
+        SshErrorCategory::channel_closed,
+        "ssh_channel_request_pty failed: " + std::string(ssh_get_error(session_)));
+  }
+
   const int shell_rc = ssh_channel_request_shell(channel);
   if (shell_rc != SSH_OK) {
     ssh_channel_close(channel);
@@ -203,6 +217,51 @@ void LibsshAdapter::start_interactive_shell() {
         "ssh_channel_request_shell failed: " + std::string(ssh_get_error(session_)));
   }
 
+  termios original_termios;
+  tcgetattr(STDIN_FILENO, &original_termios);
+  termios raw = original_termios;
+  cfmakeraw(&raw);
+  tcsetattr(STDIN_FILENO, TCSANOW, &raw);
+
+  signal(SIGWINCH, SIG_IGN);
+
+  char buffer[4096];
+  bool running = true;
+
+  while (running) {
+    pollfd stdin_fd;
+    stdin_fd.fd = STDIN_FILENO;
+    stdin_fd.events = POLLIN;
+    stdin_fd.revents = 0;
+
+    ::poll(&stdin_fd, 1, 5);
+
+    if (stdin_fd.revents & POLLIN) {
+      const ssize_t bytes = ::read(STDIN_FILENO, buffer, sizeof(buffer));
+      if (bytes > 0) {
+        ssh_channel_write(channel, buffer, static_cast<std::uint32_t>(bytes));
+      } else {
+        running = false;
+      }
+    }
+
+    while (ssh_channel_poll(channel, 0) > 0) {
+      const int bytes_read =
+          ssh_channel_read(channel, buffer, sizeof(buffer), 0);
+      if (bytes_read > 0) {
+        ::write(STDOUT_FILENO, buffer, static_cast<std::size_t>(bytes_read));
+      } else {
+        running = false;
+        break;
+      }
+    }
+
+    if (ssh_channel_is_eof(channel)) {
+      running = false;
+    }
+  }
+
+  tcsetattr(STDIN_FILENO, TCSANOW, &original_termios);
   ssh_channel_close(channel);
   ssh_channel_free(channel);
 }
