@@ -1,0 +1,16 @@
+
+build/
+build-spec-review/
+build-tdd-baseline/
+cmake_test_discovery_*.json
+zssh.yaml
+
+# === AI 产物排除规则（来源: templates/gitignore/ai-artifacts.gitignore）===
+AI_GUIDE.md
+CURRENT_TASK.md
+DECISIONS.md
+handoff/
+.codex/
+.claude/
+.serena/
+outputs/runtime/

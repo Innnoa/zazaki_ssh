@@ -1,0 +1,15 @@
+defaults:
+  stdout_high_watermark_bytes: 262144
+  stderr_high_watermark_bytes: 262144
+  stdin_low_watermark_bytes: 65536
+
+profiles:
+  prod:
+    host: prod.example.com
+    port: 22
+    theme: catppuccin-mocha
+    auth:
+      method: publickey
+      username: deploy
+      key_path: ~/.ssh/id_ed25519
+      use_agent: true

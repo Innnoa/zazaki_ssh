@@ -1,0 +1,103 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+type: object
+additionalProperties: false
+required:
+  - defaults
+  - profiles
+properties:
+  defaults:
+    type: object
+    additionalProperties: false
+    required:
+      - stdout_high_watermark_bytes
+      - stderr_high_watermark_bytes
+      - stdin_low_watermark_bytes
+    properties:
+      stdout_high_watermark_bytes:
+        type: integer
+        minimum: 1
+      stderr_high_watermark_bytes:
+        type: integer
+        minimum: 1
+      stdin_low_watermark_bytes:
+        type: integer
+        minimum: 1
+  profiles:
+    type: object
+    propertyNames:
+      minLength: 1
+      pattern: '.*\S.*'
+    additionalProperties:
+      type: object
+      additionalProperties: false
+      required:
+        - host
+        - auth
+      properties:
+        host:
+          type: string
+          minLength: 1
+          pattern: '.*\S.*'
+        port:
+          type: integer
+          minimum: 1
+          maximum: 65535
+        theme:
+          type: string
+          pattern: '.*\S.*'
+        auth:
+          type: object
+          additionalProperties: false
+          required:
+            - method
+            - username
+          properties:
+            method:
+              type: string
+              enum:
+                - publickey
+                - password
+            username:
+              type: string
+              minLength: 1
+              pattern: '.*\S.*'
+            password_command:
+              type: string
+              pattern: '.*\S.*'
+            key_path:
+              type: string
+              pattern: '.*\S.*'
+            use_agent:
+              type: boolean
+          allOf:
+            - if:
+                properties:
+                  method:
+                    const: password
+                required:
+                  - method
+              then:
+                required:
+                  - password_command
+                properties:
+                  password_command:
+                    minLength: 1
+            - if:
+                properties:
+                  method:
+                    const: publickey
+                required:
+                  - method
+              then:
+                anyOf:
+                  - required:
+                      - key_path
+                    properties:
+                      key_path:
+                        minLength: 1
+                  - not:
+                      properties:
+                        use_agent:
+                          const: false
+                      required:
+                        - use_agent
