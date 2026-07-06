@@ -14,3 +14,6 @@ handoff/
 .claude/
 .serena/
 outputs/runtime/
+
+# === AI 产物排除规则（来源: templates/gitignore/ai-artifacts.gitignore）===
+docs/superpowers/
