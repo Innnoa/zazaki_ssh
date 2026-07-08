@@ -162,16 +162,23 @@ ExecResponse LibsshAdapter::exec(
   }
 
   char buffer[4096];
-  int bytes_read;
-  while ((bytes_read = ssh_channel_read(channel, buffer, sizeof(buffer), 0)) > 0) {
-    if (callbacks.on_stdout) {
-      callbacks.on_stdout(std::string_view(buffer, static_cast<std::size_t>(bytes_read)));
-    }
-  }
 
-  while ((bytes_read = ssh_channel_read(channel, buffer, sizeof(buffer), 1)) > 0) {
-    if (callbacks.on_stderr) {
-      callbacks.on_stderr(std::string_view(buffer, static_cast<std::size_t>(bytes_read)));
+  while (ssh_channel_is_open(channel) && !ssh_channel_is_eof(channel)) {
+    ssh_channel_poll(channel, 0);
+    ssh_channel_poll(channel, 1);
+
+    const int out_bytes =
+        ssh_channel_read(channel, buffer, sizeof(buffer), 0);
+    if (out_bytes > 0 && callbacks.on_stdout) {
+      callbacks.on_stdout(
+          std::string_view(buffer, static_cast<std::size_t>(out_bytes)));
+    }
+
+    const int err_bytes =
+        ssh_channel_read(channel, buffer, sizeof(buffer), 1);
+    if (err_bytes > 0 && callbacks.on_stderr) {
+      callbacks.on_stderr(
+          std::string_view(buffer, static_cast<std::size_t>(err_bytes)));
     }
   }
 
@@ -247,11 +254,20 @@ void LibsshAdapter::start_interactive_shell() {
 
     while (ssh_channel_poll(channel, 0) > 0) {
       const int bytes_read =
-          ssh_channel_read(channel, buffer, sizeof(buffer), 0);
+          ssh_channel_read_nonblocking(channel, buffer, sizeof(buffer), 0);
       if (bytes_read > 0) {
         ::write(STDOUT_FILENO, buffer, static_cast<std::size_t>(bytes_read));
       } else {
-        running = false;
+        break;
+      }
+    }
+
+    while (ssh_channel_poll(channel, 1) > 0) {
+      const int bytes_read =
+          ssh_channel_read_nonblocking(channel, buffer, sizeof(buffer), 1);
+      if (bytes_read > 0) {
+        ::write(STDERR_FILENO, buffer, static_cast<std::size_t>(bytes_read));
+      } else {
         break;
       }
     }

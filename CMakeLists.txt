@@ -84,6 +84,7 @@ if(ZSSH_BUILD_TESTS)
     tests/unit/config/ConfigLoaderTest.cpp
     tests/unit/session/BackpressureControllerTest.cpp
     tests/unit/session/SessionManagerExecTest.cpp
+    tests/unit/session/SessionManagerLargeOutputTest.cpp
     tests/unit/platform/PlatformServicesContractTest.cpp
     tests/unit/renderer/AnsiTerminalRendererTest.cpp
     tests/integration/ExecJsonCliTest.cpp
